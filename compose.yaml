@@ -1,0 +1,14 @@
+services:
+  website:
+    build: .
+    restart: unless-stopped
+    networks:
+      web:
+        aliases:
+          - asphoto
+
+networks:
+  web:
+    external: true
+    # The Caddy Compose project creates this as its project-scoped "web" network.
+    name: caddy_web
