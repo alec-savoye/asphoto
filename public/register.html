@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="AS Photo Register">
+    <title>Register - AS Photo</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="auth-page">
+      <div class="auth-card">
+        <h1 class="auth-title">Register</h1>
+        <form id="register-form" class="auth-form">
+          <div class="auth-field">
+            <label for="invite-code">Invite Code</label>
+            <input type="text" id="invite-code" name="inviteCode" autocomplete="off" required>
+          </div>
+          <div class="auth-field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" autocomplete="username" required>
+          </div>
+          <div class="auth-field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="new-password" required minlength="8">
+          </div>
+          <div id="register-error" class="auth-error"></div>
+          <button type="submit" class="auth-submit">Create Account</button>
+        </form>
+        <a href="/login" class="auth-back">Already have an account?</a>
+        <a href="/" class="auth-back">Back to site</a>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var form = document.getElementById("register-form");
+        var error = document.getElementById("register-error");
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          error.textContent = "";
+
+          var inviteCode = document.getElementById("invite-code").value.trim();
+          var username = document.getElementById("username").value.trim();
+          var password = document.getElementById("password").value;
+
+          if (password.length < 8) {
+            error.textContent = "Password must be at least 8 characters";
+            return;
+          }
+
+          fetch("/api/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inviteCode: inviteCode, username: username, password: password }),
+          })
+            .then(function (r) {
+              return r.json().then(function (d) {
+                if (!r.ok) throw new Error(d.error || "Registration failed");
+                return d;
+              });
+            })
+            .then(function () {
+              window.location.href = "/upload";
+            })
+            .catch(function (err) {
+              error.textContent = err.message;
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>

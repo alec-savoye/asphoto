@@ -1,45 +1,93 @@
 # AS Photo
 
-A minimal photography placeholder served by nginx behind an existing Caddy
-reverse proxy. The page uses plain HTML and CSS; there is no application runtime
-or build step.
+Alec Savoye's photography portfolio site with gallery viewing and authenticated photo upload.
 
-## Network layout
+## Architecture
 
-Public traffic should follow this path:
-
-```text
-HTTPS -> Caddy -> asphoto:80
+```
+HTTPS -> Caddy (reverse proxy) -> asphoto:3000 (Node.js/Express)
 ```
 
-Caddy terminates HTTPS. The site container does not publish a host port, so its
-HTTP endpoint is available only to containers attached to Caddy's external
-Docker network, `caddy_web`.
+Express serves static files and handles API routes. Caddy terminates HTTPS on the `caddy_web` Docker network. The site container publishes no host ports.
 
-The existing Caddy Compose project defines that network as `web`; Compose gives
-it the project-scoped name `caddy_web`. Configure Caddy's site route for your
-domain to reverse proxy to `asphoto:80`. Caddy configuration, DNS, and firewall
-management intentionally remain outside this repository.
+## File Structure
 
-## Deployment commands
+```
+asphoto/
+├── server/
+│   ├── index.js            Express app: static serving, auth, upload API
+│   ├── auth.js             JWT auth middleware
+│   └── users.json          User credential store (bcrypt-hashed passwords)
+├── public/
+│   ├── index.html          Splash/landing page with gallery
+│   ├── login.html          Login page (existing credentials)
+│   ├── upload.html         Photo upload page (auth-protected)
+│   ├── styles.css          All styles (shared across pages)
+│   ├── gallery.js          Gallery interaction logic (IIFE)
+│   ├── gallery-data.js     Gallery/image metadata (SmugMug-sourced)
+│   └── assets/             Fonts, SVGs, preview images
+├── uploads/                Uploaded photos land here (gitignored, volume-mounted)
+├── Dockerfile              Node.js 22 alpine, installs deps, runs server
+├── compose.yaml            Single service, attaches to caddy_web
+├── package.json            Express, bcrypt, jsonwebtoken, multer
+├── .dockerignore           Excludes .git, node_modules, uploads
+├── AGENTS.md               Context file for AI coding sessions
+└── README.md               This file
+```
 
-Review the files before running these commands. They change Docker state and
-should only be run after approval on the host:
+## Key Flows
+
+| Flow | Path | Auth? |
+|------|------|-------|
+| Gallery splash | `GET /` | No |
+| Gallery view | `GET /` (JS-driven) | No |
+| Login page | `GET /login` | No |
+| Login submit | `POST /api/login` | No |
+| Upload page | `GET /upload` | Yes (cookie) |
+| Upload submit | `POST /api/upload` | Yes (cookie) |
+| Logout | `POST /api/logout` | Yes |
+
+## Deployment
 
 ```sh
 docker compose build
 docker compose up -d
 ```
 
-Start the neighboring Caddy Compose project first so that `caddy_web` exists.
-This project intentionally treats that network as external and does not create
-or manage it.
+The `caddy_web` network must already exist (created by the Caddy Compose project). Configure Caddy to reverse proxy to `asphoto:3000`.
 
-To verify that the site has no published host ports:
+## User Management
+
+Users are stored in `server/users.json` with bcrypt-hashed passwords. 
+
+### Generate an invite code
 
 ```sh
-docker compose ps
+node -e "const r=require('./server/register');console.log(r.createInviteCode())"
 ```
 
-After adding the route to Caddy, verify that the public domain redirects HTTP to
-HTTPS and presents a valid certificate.
+Share the printed code with the person you want to invite. They visit `/register` and enter the code + their credentials. The code is single-use and consumed on registration.
+
+### Manually add a user (alternative)
+
+```sh
+node -e "const b=require('bcryptjs');b.hash('PASSWORD',12).then(h=>console.log(h))"
+```
+
+Then add the hash to `users.json`:
+
+```json
+{ "users": [{ "username": "name", "passwordHash": "<hash>" }] }
+```
+
+## Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| POST /api/login | 5 requests per IP per 15 minutes |
+| POST /api/register | 3 requests per IP per hour |
+| POST /api/upload | 10 requests per IP per minute |
+
+## Upload Directory
+
+Uploaded photos are written to `/app/uploads` inside the container, mapped to a Docker volume. Files retain the user-provided name with a sanitized filename. Only authenticated users can upload.

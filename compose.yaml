@@ -2,6 +2,13 @@ services:
   website:
     build: .
     restart: unless-stopped
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-asphoto-dev-secret-change-in-prod}
+      - NODE_ENV=production
+    volumes:
+      - /srv/active-raid/LIBRARIES/247/photosite/uploads:/app/uploads
+      - /srv/active-raid/LIBRARIES/247/photosite/assets:/app/public/assets
+      - ./server/users.json:/app/server/users.json
     networks:
       web:
         aliases:
@@ -10,5 +17,4 @@ services:
 networks:
   web:
     external: true
-    # The Caddy Compose project creates this as its project-scoped "web" network.
     name: caddy_web

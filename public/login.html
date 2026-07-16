@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="AS Photo Login">
+    <title>Login - AS Photo</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="auth-page">
+      <div class="auth-card">
+        <h1 class="auth-title">Login</h1>
+        <form id="login-form" class="auth-form">
+          <div class="auth-field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" autocomplete="username" required>
+          </div>
+          <div class="auth-field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+          </div>
+          <div id="login-error" class="auth-error"></div>
+          <button type="submit" class="auth-submit">Submit</button>
+        </form>
+        <a href="/register" class="auth-back">Need an account?</a>
+        <a href="/" class="auth-back">Back to site</a>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var form = document.getElementById("login-form");
+        var error = document.getElementById("login-error");
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          error.textContent = "";
+
+          var username = document.getElementById("username").value;
+          var password = document.getElementById("password").value;
+
+          fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: username, password: password }),
+          })
+            .then(function (r) {
+              return r.json().then(function (d) {
+                if (!r.ok) throw new Error(d.error || "Login failed");
+                return d;
+              });
+            })
+            .then(function () {
+              window.location.href = "/upload";
+            })
+            .catch(function (err) {
+              error.textContent = err.message;
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>

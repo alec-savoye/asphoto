@@ -1,5 +1,4 @@
 .git
-.agents
-.codex
-README.md
-compose.yaml
+node_modules
+uploads
+AGENTS.md

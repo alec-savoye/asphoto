@@ -1,0 +1,14 @@
+{
+  "users": [
+    {
+      "username": "testuser",
+      "passwordHash": "$2a$12$OfTKKgS.XXATBhGOUES4E.2LgBxr3xD.CfFWwUqQJ69vN9cd1or/u"
+    }
+  ],
+  "inviteCodes": [
+    {
+      "code": "0dcd3e240a3a29ac",
+      "used": false
+    }
+  ]
+}

@@ -1,7 +1,15 @@
-FROM nginx:1.29-alpine
+FROM node:22-alpine
 
-# The stock nginx configuration is sufficient for this static placeholder.
-COPY index.html styles.css ripple.js wake.js elusive.js /usr/share/nginx/html/
-COPY assets /usr/share/nginx/html/assets
+WORKDIR /app
 
-EXPOSE 80
+COPY package.json ./
+RUN npm install --omit=dev
+
+COPY server ./server
+COPY public ./public
+
+EXPOSE 3000
+
+ENV NODE_ENV=production
+
+CMD ["node", "server/index.js"]
