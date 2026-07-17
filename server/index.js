@@ -18,6 +18,7 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.set("trust proxy", 1);
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -72,8 +73,12 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024, files: 20 },
   fileFilter: (_req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp|tiff|bmp)$/i;
-    cb(null, allowed.test(path.extname(file.originalname)));
+    const allowed = /\.(jpg|jpeg|png|gif|webp|tiff|tif|bmp)$/i;
+    if (!allowed.test(path.extname(file.originalname))) {
+      _req.fileValidationError = "File type not allowed: " + path.extname(file.originalname);
+      return cb(null, false);
+    }
+    cb(null, true);
   },
 });
 
@@ -147,6 +152,9 @@ app.get("/api/me", authMiddleware, (req, res) => {
 });
 
 app.post("/api/upload", uploadLimiter, authMiddleware, upload.array("photos", 20), (req, res) => {
+  if (req.fileValidationError) {
+    return res.status(400).json({ error: req.fileValidationError });
+  }
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: "No files uploaded" });
   }

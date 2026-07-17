@@ -84,31 +84,51 @@
         document.getElementById("upload-form").addEventListener("submit", function (e) {
           e.preventDefault();
           error.textContent = "";
-          success.textContent = "";
+          success.innerHTML = 'Uploading <div class="upload-progress-wrap"><div class="upload-progress-bar" id="progress-bar"></div></div>';
 
-          var formData = new FormData(e.target);
-          var photos = formData.getAll("photos");
-          var names = formData.getAll("names");
+          var fd = new FormData(e.target);
+          var xhr = new XMLHttpRequest();
+          var bar = document.getElementById("progress-bar");
 
-          var fd = new FormData();
-          photos.forEach(function (p) { fd.append("photos", p); });
-          names.forEach(function (n) { fd.append("names", n); });
+          xhr.open("POST", "/api/upload", true);
+          xhr.withCredentials = true;
+          xhr.responseType = "text";
 
-          fetch("/api/upload", { method: "POST", body: fd })
-            .then(function (r) {
-              return r.json().then(function (d) {
-                if (!r.ok) throw new Error(d.error || "Upload failed");
-                return d;
-              });
-            })
-            .then(function (d) {
-              success.textContent = d.files.length + " file(s) uploaded successfully";
-              items.innerHTML = "";
-              addItem();
-            })
-            .catch(function (err) {
-              error.textContent = err.message;
-            });
+          xhr.upload.addEventListener("progress", function (ev) {
+            if (ev.lengthComputable) {
+              var pct = Math.round((ev.loaded / ev.total) * 100);
+              bar.style.width = pct + "%";
+            }
+          });
+
+          xhr.addEventListener("load", function () {
+            var d;
+            try { d = JSON.parse(xhr.responseText); } catch (parseErr) {
+              error.textContent = "HTTP " + xhr.status + ": " + xhr.responseText.slice(0, 500);
+              success.textContent = "";
+              return;
+            }
+            if (xhr.status >= 400) {
+              error.textContent = "HTTP " + xhr.status + ": " + (d.error || xhr.responseText.slice(0, 500));
+              success.textContent = "";
+              return;
+            }
+            success.textContent = d.files.length + " file(s) uploaded successfully";
+            items.innerHTML = "";
+            addItem();
+          });
+
+          xhr.addEventListener("error", function () {
+            error.textContent = "Network error: request failed (CORS, timeout, or server unreachable)";
+            success.textContent = "";
+          });
+
+          xhr.addEventListener("timeout", function () {
+            error.textContent = "Upload timed out";
+            success.textContent = "";
+          });
+
+          xhr.send(fd);
         });
 
         document.getElementById("logout-form").addEventListener("submit", function (e) {
