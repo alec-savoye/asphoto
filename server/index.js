@@ -3,10 +3,12 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
+const mm = require("music-metadata");
+const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
 const cookieParser = require("cookie-parser");
-const { authMiddleware, JWT_SECRET } = require("./auth");
+const { authMiddleware, musicAuthMiddleware, JWT_SECRET, MUSIC_PASSWORD_HASH } = require("./auth");
 const {
   createInviteCode,
   validateInviteCode,
@@ -44,12 +46,32 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  message: { error: "Too many requests. Slow down." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const musicStreamLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Too many stream requests." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ limit: "1mb", extended: true }));
+app.use(globalLimiter);
+app.use(express.static(path.join(__dirname, "..", "public"), { maxAge: "1h" }));
 
 const UPLOADS_DIR = path.join(__dirname, "..", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const MUSIC_DIR = process.env.MUSIC_DIR || path.join(__dirname, "..", "music");
 
 function sanitizeFilename(name) {
   return name
@@ -202,6 +224,181 @@ app.get("/api/uploads", (_req, res) => {
   res.json(images);
 });
 
+const MUSIC_EXTS = /\.(mp3|flac|wav|ogg|aac|m4a|wma|opus)$/i;
+
+const CACHE_DIR = process.env.CACHE_DIR || path.join(__dirname, "..", "cache");
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+const MUSIC_CACHE_FILE = path.join(CACHE_DIR, "music.json");
+
+function readMusicCache() {
+  try {
+    var raw = fs.readFileSync(MUSIC_CACHE_FILE, "utf8");
+    var data = JSON.parse(raw);
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch {}
+  return null;
+}
+
+function writeMusicCache(tracks) {
+  try {
+    fs.writeFileSync(MUSIC_CACHE_FILE, JSON.stringify(tracks));
+  } catch {}
+}
+
+var musicMemCache = null;
+var musicMemCacheTime = 0;
+var MUSIC_CACHE_TTL = 30 * 60 * 1000;
+var musicIndexing = null;
+
+function walkDir(dir) {
+  var results = [];
+  try {
+    var list = fs.readdirSync(dir);
+  } catch {
+    return results;
+  }
+  list.forEach(function (file) {
+    if (file.startsWith("._")) return;
+    var fp = path.join(dir, file);
+    try {
+      var stat = fs.statSync(fp);
+    } catch {
+      return;
+    }
+    if (stat.isDirectory()) {
+      results = results.concat(walkDir(fp));
+    } else if (MUSIC_EXTS.test(file)) {
+      results.push(fp);
+    }
+  });
+  return results;
+}
+
+app.post("/api/music/auth", (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: "Missing password" });
+  bcrypt.compare(password, MUSIC_PASSWORD_HASH).then((match) => {
+    if (!match) return res.status(401).json({ error: "Wrong password" });
+    const token = jwt.sign({ musicAccess: true }, JWT_SECRET, { expiresIn: "30d" });
+    res.cookie("musicToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+    res.json({ success: true });
+  });
+});
+
+app.get("/api/music", musicAuthMiddleware, async (_req, res) => {
+  if (musicMemCache && Date.now() - musicMemCacheTime < MUSIC_CACHE_TTL) {
+    return res.json(musicMemCache);
+  }
+
+  var diskCache = readMusicCache();
+  if (diskCache) {
+    musicMemCache = diskCache;
+    musicMemCacheTime = Date.now();
+    return res.json(diskCache);
+  }
+
+  if (musicIndexing) {
+    return res.json({ status: "indexing", progress: musicIndexing.progress, total: musicIndexing.total });
+  }
+
+  var files = walkDir(MUSIC_DIR);
+  var tracks = [];
+  musicIndexing = { progress: 0, total: files.length };
+  for (var i = 0; i < files.length; i++) {
+    var fp = files[i];
+    var rel = path.relative(MUSIC_DIR, fp);
+    try {
+      var metadata = await mm.parseFile(fp, { duration: false });
+      var common = metadata.common;
+      tracks.push({
+        id: i,
+        path: rel,
+        title: common.title || path.basename(fp, path.extname(fp)),
+        artist: common.artist || "",
+        album: common.album || "",
+        year: common.year || "",
+        track: common.track ? common.track.no : null,
+        duration: metadata.format.duration ? Math.round(metadata.format.duration) : null,
+      });
+    } catch (err) {
+      tracks.push({
+        id: i,
+        path: rel,
+        title: path.basename(fp, path.extname(fp)),
+        artist: "",
+        album: "",
+        year: "",
+        track: null,
+        duration: null,
+        error: err.message,
+      });
+    }
+    musicIndexing.progress = i + 1;
+  }
+
+  musicMemCache = tracks;
+  musicMemCacheTime = Date.now();
+  musicIndexing = null;
+  writeMusicCache(tracks);
+  res.json(tracks);
+});
+
+app.get("/api/music/stream", musicAuthMiddleware, musicStreamLimiter, (req, res) => {
+  var rel = req.query.path;
+  if (!rel) return res.status(400).json({ error: "Missing path" });
+  var fp = path.join(MUSIC_DIR, rel);
+  if (!fp.startsWith(MUSIC_DIR)) return res.status(403).json({ error: "Forbidden" });
+  if (!fs.existsSync(fp)) return res.status(404).json({ error: "Not found" });
+
+  var ext = path.extname(fp).toLowerCase();
+  var transcode = req.query.transcode === "1";
+  var needsTranscode = transcode || [".m4a", ".aac", ".wma", ".opus"].includes(ext);
+
+  if (needsTranscode) {
+    res.setHeader("Content-Type", "audio/mpeg");
+    var { spawn } = require("child_process");
+    var ffmpeg = spawn("ffmpeg", ["-i", fp, "-f", "mp3", "-ab", "192k", "-"]);
+    ffmpeg.stdout.pipe(res);
+    ffmpeg.stderr.resume();
+    req.on("close", function () { ffmpeg.kill(); });
+    return;
+  }
+
+  var stat = fs.statSync(fp);
+  var mime = "audio/mpeg";
+  if (ext === ".m4a") mime = "audio/x-m4a";
+  else if (ext === ".aac") mime = "audio/aac";
+  else if (ext === ".flac") mime = "audio/flac";
+  else if (ext === ".wav") mime = "audio/wav";
+  else if (ext === ".ogg") mime = "audio/ogg";
+  else if (ext === ".opus") mime = "audio/ogg";
+  else if (ext === ".wma") mime = "audio/x-ms-wma";
+
+  res.setHeader("Content-Type", mime);
+  res.setHeader("Accept-Ranges", "bytes");
+
+  var range = req.headers.range;
+  if (range) {
+    var parts = range.replace(/bytes=/, "").split("-");
+    var start = parseInt(parts[0], 10);
+    var end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+    var chunkSize = end - start + 1;
+    res.status(206);
+    res.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + stat.size);
+    res.setHeader("Content-Length", chunkSize);
+    fs.createReadStream(fp, { start: start, end: end }).pipe(res);
+  } else {
+    res.setHeader("Content-Length", stat.size);
+    fs.createReadStream(fp).pipe(res);
+  }
+});
+
 app.get("/login", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "login.html"));
 });
@@ -214,6 +411,40 @@ app.get("/upload", authMiddleware, (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "upload.html"));
 });
 
+app.get("/music", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "music.html"));
+});
+
+app.get("/api/music/download/:album", musicAuthMiddleware, (req, res) => {
+  var album = req.params.album;
+  var diskCache = readMusicCache();
+  if (!diskCache) return res.status(404).json({ error: "Library not indexed yet" });
+
+  var albumTracks = diskCache.filter(function (t) {
+    return t.album === album;
+  });
+  if (albumTracks.length === 0) return res.status(404).json({ error: "Album not found" });
+
+  var safeName = album.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_") || "album";
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + ".zip\"");
+
+  var archive = archiver("zip", { zlib: { level: 1 } });
+  archive.on("error", function (err) {
+    console.error("Zip error:", err.message);
+  });
+  archive.pipe(res);
+
+  albumTracks.forEach(function (t) {
+    var fp = path.join(MUSIC_DIR, t.path);
+    if (fs.existsSync(fp)) {
+      archive.file(fp, { name: path.basename(t.path) });
+    }
+  });
+
+  archive.finalize();
+});
+
 app.use((_req, res, next) => {
   if (_req.accepts("html") && _req.method === "GET" && !_req.path.startsWith("/api")) {
     res.sendFile(path.join(__dirname, "..", "public", "index.html"));
@@ -224,4 +455,49 @@ app.use((_req, res, next) => {
 
 app.listen(PORT, () => {
   console.log("AS Photo running on port " + PORT);
+
+  if (!readMusicCache()) {
+    console.log("Pre-indexing music library...");
+    var files = walkDir(MUSIC_DIR);
+    console.log("Found " + files.length + " music files. Parsing metadata...");
+    (async function () {
+      var tracks = [];
+      for (var i = 0; i < files.length; i++) {
+        var fp = files[i];
+        var rel = path.relative(MUSIC_DIR, fp);
+        try {
+          var metadata = await mm.parseFile(fp, { duration: false });
+          var common = metadata.common;
+          tracks.push({
+            id: i,
+            path: rel,
+            title: common.title || path.basename(fp, path.extname(fp)),
+            artist: common.artist || "",
+            album: common.album || "",
+            year: common.year || "",
+            track: common.track ? common.track.no : null,
+            duration: metadata.format.duration ? Math.round(metadata.format.duration) : null,
+          });
+        } catch {
+          tracks.push({
+            id: i,
+            path: rel,
+            title: path.basename(fp, path.extname(fp)),
+            artist: "",
+            album: "",
+            year: "",
+            track: null,
+            duration: null,
+          });
+        }
+        if (i % 100 === 0) console.log("Parsed " + i + "/" + files.length);
+      }
+      musicMemCache = tracks;
+      musicMemCacheTime = Date.now();
+      writeMusicCache(tracks);
+      console.log("Music indexing complete. " + tracks.length + " tracks cached.");
+    })();
+  } else {
+    console.log("Music cache found. Skipping re-index.");
+  }
 });

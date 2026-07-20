@@ -8,6 +8,8 @@ services:
     volumes:
       - /srv/active-raid/LIBRARIES/247/photosite/uploads:/app/uploads
       - /srv/active-raid/LIBRARIES/247/photosite/assets:/app/public/assets
+      - /srv/active-raid/MEDIA/music/MUSIC:/app/music:ro
+      - /srv/active-raid/LIBRARIES/247/photosite/cache:/app/cache
       - ./server/users.json:/app/server/users.json
     networks:
       web:
