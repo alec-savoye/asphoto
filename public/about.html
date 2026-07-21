@@ -1,0 +1,65 @@
+<!-- CHRIS IF UR TRYING 2 HACK FUCK OFF I WILL GET YOU -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>About - AS Photo</title>
+    <link rel="icon" type="image/jpeg" href="https://photos.smugmug.com/ALEC-SAVOYE/All-New-Film/SLOfinale/i-87vczWq/0/L8SH7HJWRMWxKMPZ5sskHhvTKdH3MkDDMPtfLkqSJ/L/clintlydONE_002-L.jpg">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="about-body">
+    <div class="about-scene">
+      <div class="about-glow"></div>
+      <div class="about-card" id="about-card">
+        <div class="about-card-face about-card-front">
+          <img class="about-photo" src="assets/DULUTHSUP_025_preview.jpeg" alt="">
+          <span class="about-click-hint">click</span>
+        </div>
+        <div class="about-card-face about-card-back">
+          <div class="about-text-box">
+            <p>Placeholder text one. This is where the first bio paragraph will go.</p>
+          </div>
+          <div class="about-text-box">
+            <p>Placeholder text two. This is where the second bio paragraph will go.</p>
+          </div>
+          <div class="about-text-box">
+            <p>Placeholder text three. This is where the third bio paragraph will go.</p>
+          </div>
+        </div>
+      </div>
+      <a href="/" class="about-back-link">Back</a>
+    </div>
+
+    <script>
+      (function () {
+        var card = document.getElementById("about-card");
+        var scene = document.querySelector(".about-scene");
+        var flipped = false;
+
+        card.addEventListener("click", function () {
+          flipped = !flipped;
+          if (flipped) {
+            card.classList.add("flipped");
+          } else {
+            card.classList.remove("flipped");
+          }
+        });
+
+        scene.addEventListener("mousemove", function (e) {
+          if (flipped) return;
+          var rect = scene.getBoundingClientRect();
+          var x = (e.clientX - rect.left) / rect.width - 0.5;
+          var y = (e.clientY - rect.top) / rect.height - 0.5;
+          card.style.transform = "rotateY(" + (x * 15) + "deg) rotateX(" + (-y * 15) + "deg) translateZ(20px)";
+        });
+
+        scene.addEventListener("mouseleave", function () {
+          if (!flipped) {
+            card.style.transform = "";
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

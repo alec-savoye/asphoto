@@ -1079,3 +1079,193 @@ body {
   border-radius: 2px;
   transition: width 0.2s linear;
 }
+
+#landing-footer {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 150;
+}
+
+.footer-link {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 20%);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: #fff;
+}
+
+.about-body {
+  background: #080d18;
+  margin: 0;
+  overflow: hidden;
+}
+
+.about-scene {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+  position: relative;
+}
+
+.about-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(60 120 255 / 12%) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}
+
+.about-card {
+  width: 280px;
+  height: 360px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), width 0.8s cubic-bezier(0.4, 0, 0.2, 1), height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.about-card.flipped {
+  transform: rotateY(180deg) !important;
+  width: 840px;
+  height: 360px;
+}
+
+.about-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.about-card-front {
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 0 40px rgb(40 80 200 / 15%),
+    0 20px 60px rgb(0 0 0 / 40%),
+    inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
+.about-photo {
+  width: 85%;
+  height: 80%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.about-click-hint {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 25%);
+  margin-top: 1rem;
+  animation: hint-fade 3s ease-in-out infinite;
+}
+
+@keyframes hint-fade {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.6; }
+}
+
+.about-card-back {
+  background: rgb(8 13 24 / 95%);
+  border: 1px solid rgb(60 120 255 / 12%);
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 2rem;
+  box-shadow:
+    0 0 40px rgb(40 80 200 / 15%),
+    0 20px 60px rgb(0 0 0 / 40%);
+  visibility: hidden;
+}
+
+.about-card.flipped .about-card-back {
+  visibility: visible;
+}
+
+.about-card.flipped .about-text-box {
+  animation: text-reveal 0.6s ease forwards;
+}
+
+.about-card.flipped .about-text-box:nth-child(1) { animation-delay: 0.2s; }
+.about-card.flipped .about-text-box:nth-child(2) { animation-delay: 0.4s; }
+.about-card.flipped .about-text-box:nth-child(3) { animation-delay: 0.6s; }
+
+.about-text-box {
+  opacity: 0;
+  transform: translateY(20px);
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(60 120 255 / 10%);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+  width: 100%;
+}
+
+@keyframes text-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.about-text-box p {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 60%);
+  text-align: center;
+}
+
+.about-back-link {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 2rem;
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 25%);
+  text-decoration: none;
+  transition: color 0.2s;
+  z-index: 10;
+}
+
+.about-back-link:hover {
+  color: #fff;
+}

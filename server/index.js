@@ -415,6 +415,10 @@ app.get("/music", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "music.html"));
 });
 
+app.get("/about", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "about.html"));
+});
+
 app.get("/api/music/download/:album", musicAuthMiddleware, (req, res) => {
   var album = req.params.album;
   var diskCache = readMusicCache();
