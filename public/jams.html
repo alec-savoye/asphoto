@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <div class="music-page" id="music-page">
+    <div class="jams-page" id="jams-page">
       <div class="music-header">
         <h1 class="music-title">Jams</h1>
         <div class="music-header-links">
@@ -18,12 +18,8 @@
         </div>
       </div>
 
-      <div class="music-content" id="music-content">
-        <div class="music-list-wrap" id="music-list-wrap">
-          <div id="music-status" class="music-status">Loading jams...</div>
-          <div id="music-list" class="music-list"></div>
-        </div>
-      </div>
+      <div id="music-status" class="music-status">Loading jams...</div>
+      <div id="jams-grid" class="jams-grid"></div>
 
       <div id="music-player" class="music-player hidden">
         <div class="music-player-info">
@@ -53,7 +49,7 @@
         var currentTrack = -1;
         var audio = document.getElementById("audio");
         var status = document.getElementById("music-status");
-        var list = document.getElementById("music-list");
+        var grid = document.getElementById("jams-grid");
         var player = document.getElementById("music-player");
         var playBtn = document.getElementById("player-play");
         var prevBtn = document.getElementById("player-prev");
@@ -62,6 +58,7 @@
         var progressBar = document.getElementById("progress-bar");
         var currentTime = document.getElementById("player-current");
         var durationEl = document.getElementById("player-duration");
+        var shareBtn = document.getElementById("player-share");
 
         function formatTime(s) {
           if (!s || isNaN(s)) return "0:00";
@@ -70,7 +67,8 @@
           return m + ":" + (sec < 10 ? "0" : "") + sec;
         }
 
-        var shareBtn = document.getElementById("player-share");
+        var sharedTrack = null;
+        var sharedIndex = -1;
 
         function playTrack(index) {
           if (index < 0 || index >= tracks.length) return;
@@ -92,8 +90,8 @@
             });
           };
 
-          document.querySelectorAll(".music-track").forEach(function (el, i) {
-            el.classList.toggle("active", i === index);
+          document.querySelectorAll(".jam-tile").forEach(function (el, i) {
+            el.classList.toggle("jam-tile-active", i === index);
           });
 
           audio.pause();
@@ -105,6 +103,7 @@
               playBtn.innerHTML = "&#9654;";
               status.textContent = "Press play to start";
               setTimeout(function () { status.textContent = ""; }, 3000);
+              sharedTrack = null;
             } else {
               audio.play().then(function () {
                 playBtn.innerHTML = "&#9646;&#9646;";
@@ -197,30 +196,45 @@
               }
 
               var params = new URLSearchParams(window.location.search);
-              var sharedTrack = params.get("track");
-              var sharedIndex = -1;
+              sharedTrack = params.get("track");
 
-              var currentAlbum = "";
               data.forEach(function (t, i) {
-                var albumLabel = t.album || "\u2014 Unknown \u2014";
-                if (albumLabel !== currentAlbum) {
-                  currentAlbum = albumLabel;
-                  var header = document.createElement("div");
-                  header.className = "music-album-header";
-                  header.textContent = albumLabel + (t.artist ? " \u2014 " + t.artist : "") + (t.year ? " (" + t.year + ")" : "");
-                  list.appendChild(header);
-                }
+                var tile = document.createElement("div");
+                tile.className = "jam-tile";
 
-                var row = document.createElement("div");
-                row.className = "music-track";
-                var ext = t.path.split(".").pop().toLowerCase();
-                var badge = (ext === "mov" || ext === "mp4") ? ' <span class="track-badge">video</span>' : "";
-                row.innerHTML =
-                  '<span class="track-num">' + (t.track || "") + '</span>' +
-                  '<span class="track-title">' + t.title + badge + '</span>' +
-                  '<span class="track-duration">' + formatTime(t.duration) + '</span>';
-                row.addEventListener("click", function () { playTrack(i); });
-                list.appendChild(row);
+                var inner = document.createElement("div");
+                inner.className = "jam-tile-inner";
+
+                var front = document.createElement("div");
+                front.className = "jam-tile-front";
+                front.innerHTML =
+                  '<span class="jam-tile-title">' + t.title + '</span>' +
+                  '<span class="jam-tile-sub">' + (t.artist || "") + '</span>' +
+                  '<span class="jam-tile-dur">' + formatTime(t.duration) + '</span>';
+
+                var back = document.createElement("div");
+                back.className = "jam-tile-back";
+                back.innerHTML =
+                  '<img class="jam-tile-img" src="' + (t.image || "") + '" alt="">' +
+                  '<span class="jam-tile-play-label">play</span>';
+
+                inner.appendChild(front);
+                inner.appendChild(back);
+                tile.appendChild(inner);
+
+                tile.addEventListener("click", function () {
+                  var wasActive = tile.classList.contains("jam-tile-active");
+                  document.querySelectorAll(".jam-tile").forEach(function (el) {
+                    el.classList.remove("jam-tile-active", "jam-tile-focused");
+                  });
+                  document.getElementById("jams-page").classList.remove("jam-focus-mode");
+                  if (!wasActive) {
+                    tile.classList.add("jam-tile-active", "jam-tile-focused");
+                    document.getElementById("jams-page").classList.add("jam-focus-mode");
+                    playTrack(i);
+                  }
+                });
+                grid.appendChild(tile);
 
                 if (sharedTrack && t.path === sharedTrack) {
                   sharedIndex = i;

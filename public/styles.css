@@ -1320,3 +1320,168 @@ body {
 .about-back-link:hover {
   color: #fff;
 }
+
+.jams-page {
+  min-height: 100vh;
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding-bottom: 8rem;
+}
+
+.jams-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .jams-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.jam-tile {
+  height: 240px;
+  cursor: pointer;
+}
+
+.jam-tile-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jam-tile:hover .jam-tile-inner {
+  transform: rotateY(180deg);
+}
+
+.jam-tile-active .jam-tile-inner {
+  transform: rotateY(180deg);
+}
+
+.jam-tile-front,
+.jam-tile-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.jam-tile-front {
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow:
+    0 0 30px rgb(40 80 200 / 6%),
+    0 10px 30px rgb(0 0 0 / 20%);
+}
+
+.jam-tile:hover .jam-tile-front {
+  border-color: rgb(255 255 255 / 15%);
+  box-shadow:
+    0 0 30px rgb(40 80 200 / 10%),
+    0 10px 30px rgb(0 0 0 / 30%);
+}
+
+.jam-tile-active .jam-tile-front {
+  border-color: rgb(255 255 255 / 20%);
+  box-shadow:
+    0 0 40px rgb(40 80 200 / 15%),
+    0 10px 30px rgb(0 0 0 / 30%);
+}
+
+.jam-tile-title {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.jam-tile-active .jam-tile-title {
+  color: #fff;
+}
+
+.jam-tile-sub {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.65rem;
+  color: rgb(255 255 255 / 30%);
+  text-align: center;
+}
+
+.jam-tile-dur {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: rgb(255 255 255 / 18%);
+  margin-top: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  padding: 0.15rem 0.5rem;
+}
+
+.jam-tile-back {
+  background: rgb(8 13 24 / 95%);
+  border: 1px solid rgb(60 120 255 / 12%);
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  box-shadow:
+    0 0 30px rgb(40 80 200 / 8%),
+    0 10px 30px rgb(0 0 0 / 30%);
+}
+
+.jam-tile-img {
+  width: 90%;
+  height: 70%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.jam-tile-play-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 35%);
+}
+
+.jam-focus-mode .jam-tile:not(.jam-tile-focused) {
+  opacity: 0.3;
+  transform: scale(0.95);
+  transition: opacity 0.4s, transform 0.4s;
+}
+
+.jam-tile-focused {
+  z-index: 10;
+}
+
+.jam-tile-focused .jam-tile-inner {
+  transform: rotateY(180deg) scale(1.08);
+}
+
+.jam-tile-focused .jam-tile-back {
+  box-shadow:
+    0 0 60px rgb(60 120 255 / 25%),
+    0 0 120px rgb(60 120 255 / 10%),
+    0 20px 60px rgb(0 0 0 / 40%);
+  border-color: rgb(60 120 255 / 30%);
+}

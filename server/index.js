@@ -482,6 +482,7 @@ app.get("/api/jams", async (_req, res) => {
         year: common.year || "",
         track: common.track ? common.track.no : null,
         duration: metadata.format.duration ? Math.round(metadata.format.duration) : null,
+        image: "/assets/jams/jam_" + (i + 1) + ".jpg",
       });
     } catch (err) {
       tracks.push({
@@ -493,6 +494,7 @@ app.get("/api/jams", async (_req, res) => {
         year: "",
         track: null,
         duration: null,
+        image: "/assets/jams/jam_" + (i + 1) + ".jpg",
         error: err.message,
       });
     }
@@ -664,6 +666,7 @@ app.listen(PORT, () => {
             year: common.year || "",
             track: common.track ? common.track.no : null,
             duration: metadata.format.duration ? Math.round(metadata.format.duration) : null,
+            image: "/assets/jams/jam_" + (i + 1) + ".jpg",
           });
         } catch {
           tracks.push({
@@ -675,6 +678,7 @@ app.listen(PORT, () => {
             year: "",
             track: null,
             duration: null,
+            image: "/assets/jams/jam_" + (i + 1) + ".jpg",
           });
         }
       }
