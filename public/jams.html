@@ -4,35 +4,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Music - AS Photo</title>
+    <title>Jams - AS Photo</title>
     <link rel="icon" type="image/jpeg" href="https://photos.smugmug.com/ALEC-SAVOYE/All-New-Film/SLOfinale/i-87vczWq/0/L8SH7HJWRMWxKMPZ5sskHhvTKdH3MkDDMPtfLkqSJ/L/clintlydONE_002-L.jpg">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <div class="music-page" id="music-page">
       <div class="music-header">
-        <h1 class="music-title">Music</h1>
+        <h1 class="music-title">Jams</h1>
         <div class="music-header-links">
-          <a href="/jams" class="music-nav-link">Jams</a>
+          <a href="/music" class="music-nav-link">Music</a>
           <a href="/" class="music-back">Back</a>
         </div>
       </div>
 
-      <div id="music-gate" class="music-gate">
-        <form id="music-auth-form" class="music-auth-form">
-          <div class="auth-field">
-            <label for="music-password">Password</label>
-            <input type="password" id="music-password" name="password" autocomplete="off" required>
-          </div>
-          <div id="music-auth-error" class="auth-error"></div>
-          <button type="submit" class="auth-submit">Enter</button>
-        </form>
-      </div>
-
-      <div class="music-content hidden" id="music-content">
-        <img class="music-image" id="music-image" src="/assets/clintoncityhap_005.jpg" alt="">
+      <div class="music-content" id="music-content">
         <div class="music-list-wrap" id="music-list-wrap">
-          <div id="music-status" class="music-status">Loading library...</div>
+          <div id="music-status" class="music-status">Loading jams...</div>
           <div id="music-list" class="music-list"></div>
         </div>
       </div>
@@ -46,7 +34,6 @@
           <button id="player-prev" class="player-btn" aria-label="Previous">&#9664;&#9664;</button>
           <button id="player-play" class="player-btn play-btn" aria-label="Play">&#9654;</button>
           <button id="player-next" class="player-btn" aria-label="Next">&#9654;&#9654;</button>
-          <a id="player-download" class="player-btn download-btn" href="#" aria-label="Download album">&#8681;</a>
           <button id="player-share" class="player-btn share-btn" aria-label="Share link">&#8599;</button>
         </div>
         <div class="player-progress-wrap">
@@ -71,13 +58,10 @@
         var playBtn = document.getElementById("player-play");
         var prevBtn = document.getElementById("player-prev");
         var nextBtn = document.getElementById("player-next");
-        var downloadBtn = document.getElementById("player-download");
-        var shareBtn = document.getElementById("player-share");
         var progressFill = document.getElementById("progress-fill");
         var progressBar = document.getElementById("progress-bar");
         var currentTime = document.getElementById("player-current");
         var durationEl = document.getElementById("player-duration");
-        var musicPage = document.getElementById("music-page");
 
         function formatTime(s) {
           if (!s || isNaN(s)) return "0:00";
@@ -86,56 +70,7 @@
           return m + ":" + (sec < 10 ? "0" : "") + sec;
         }
 
-        var gate = document.getElementById("music-gate");
-        var authForm = document.getElementById("music-auth-form");
-        var authError = document.getElementById("music-auth-error");
-        var musicContent = document.getElementById("music-content");
-
-        function checkMusicAuth() {
-          fetch("/api/music", { credentials: "same-origin" })
-            .then(function (r) {
-              if (r.status === 401) {
-                gate.style.display = "";
-                musicContent.classList.add("hidden");
-              } else {
-                gate.style.display = "none";
-                musicContent.classList.remove("hidden");
-                loadMusic();
-              }
-            })
-            .catch(function () {
-              gate.style.display = "";
-              musicContent.classList.add("hidden");
-            });
-        }
-
-        authForm.addEventListener("submit", function (e) {
-          e.preventDefault();
-          authError.textContent = "";
-          var pw = document.getElementById("music-password").value;
-          fetch("/api/music/auth", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password: pw }),
-            credentials: "same-origin"
-          })
-            .then(function (r) {
-              return r.json().then(function (d) {
-                if (!r.ok) throw new Error(d.error || "Auth failed");
-                return d;
-              });
-            })
-            .then(function () {
-              gate.style.display = "none";
-              musicContent.classList.remove("hidden");
-              loadMusic();
-            })
-            .catch(function (err) {
-              authError.textContent = err.message;
-            });
-        });
-
-        checkMusicAuth();
+        var shareBtn = document.getElementById("player-share");
 
         function playTrack(index) {
           if (index < 0 || index >= tracks.length) return;
@@ -147,14 +82,7 @@
           player.classList.remove("hidden");
           status.textContent = "Loading: " + t.title + "...";
 
-          if (t.album) {
-            downloadBtn.href = "/api/music/download/" + encodeURIComponent(t.album);
-            downloadBtn.style.display = "";
-          } else {
-            downloadBtn.style.display = "none";
-          }
-
-          var shareUrl = window.location.origin + "/music?track=" + encodeURIComponent(t.path);
+          var shareUrl = window.location.origin + "/jams?track=" + encodeURIComponent(t.path);
           shareBtn.onclick = function () {
             navigator.clipboard.writeText(shareUrl).then(function () {
               shareBtn.innerHTML = "&#10003;";
@@ -169,7 +97,7 @@
           });
 
           audio.pause();
-          audio.src = "/api/music/stream?path=" + encodeURIComponent(t.path) + "&transcode=1";
+          audio.src = "/api/jams/stream?path=" + encodeURIComponent(t.path) + "&transcode=1";
 
           audio.oncanplay = function () {
             status.textContent = "";
@@ -180,7 +108,6 @@
             } else {
               audio.play().then(function () {
                 playBtn.innerHTML = "&#9646;&#9646;";
-                musicPage.classList.add("playing");
               }).catch(function (e) {
                 playBtn.innerHTML = "&#9654;";
                 status.textContent = "Play error: " + e.message;
@@ -194,7 +121,6 @@
             if (audio.error) {
               var codes = { 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" };
               errMsg = "Audio error " + (codes[audio.error.code] || audio.error.code) + ": " + (audio.error.message || "");
-              errMsg += " | src: " + audio.src.slice(0, 120);
             }
             status.textContent = errMsg;
             playBtn.innerHTML = "&#9654;";
@@ -206,11 +132,9 @@
           if (audio.paused) {
             audio.play();
             playBtn.innerHTML = "&#9646;&#9646;";
-            musicPage.classList.add("playing");
           } else {
             audio.pause();
             playBtn.innerHTML = "&#9654;";
-            musicPage.classList.remove("playing");
           }
         });
 
@@ -235,7 +159,6 @@
           } else {
             playBtn.innerHTML = "&#9654;";
             progressFill.style.width = "0%";
-            musicPage.classList.remove("playing");
           }
         });
 
@@ -247,8 +170,8 @@
           }
         });
 
-        function loadMusic() {
-          fetch("/api/music", { credentials: "same-origin" })
+        function loadJams() {
+          fetch("/api/jams", { credentials: "same-origin" })
             .then(function (r) {
               if (!r.ok) {
                 return r.text().then(function (text) {
@@ -259,17 +182,17 @@
             })
             .then(function (data) {
               if (data.status === "indexing") {
-                status.textContent = "Indexing library... " + data.progress + " / " + data.total + " tracks parsed";
-                setTimeout(loadMusic, 2000);
+                status.textContent = "Indexing jams... " + data.progress + " / " + data.total;
+                setTimeout(loadJams, 2000);
                 return;
               }
 
               tracks = data;
-              status.textContent = "Loaded " + data.length + " tracks";
+              status.textContent = "Loaded " + data.length + " jams";
               setTimeout(function () { status.textContent = ""; }, 2000);
 
               if (data.length === 0) {
-                status.textContent = "No music files found";
+                status.textContent = "No jams found";
                 return;
               }
 
@@ -279,22 +202,22 @@
 
               var currentAlbum = "";
               data.forEach(function (t, i) {
-                var albumLabel = t.album || "\u2014 Unknown Album \u2014";
+                var albumLabel = t.album || "\u2014 Unknown \u2014";
                 if (albumLabel !== currentAlbum) {
                   currentAlbum = albumLabel;
                   var header = document.createElement("div");
                   header.className = "music-album-header";
-                  var headerText = albumLabel + (t.artist ? " \u2014 " + t.artist : "") + (t.year ? " (" + t.year + ")" : "");
-                  header.innerHTML = '<span>' + headerText + '</span>' +
-                    '<a class="album-download" href="/api/music/download/' + encodeURIComponent(t.album || "") + '" title="Download album">&#8681;</a>';
+                  header.textContent = albumLabel + (t.artist ? " \u2014 " + t.artist : "") + (t.year ? " (" + t.year + ")" : "");
                   list.appendChild(header);
                 }
 
                 var row = document.createElement("div");
                 row.className = "music-track";
+                var ext = t.path.split(".").pop().toLowerCase();
+                var badge = (ext === "mov" || ext === "mp4") ? ' <span class="track-badge">video</span>' : "";
                 row.innerHTML =
                   '<span class="track-num">' + (t.track || "") + '</span>' +
-                  '<span class="track-title">' + t.title + '</span>' +
+                  '<span class="track-title">' + t.title + badge + '</span>' +
                   '<span class="track-duration">' + formatTime(t.duration) + '</span>';
                 row.addEventListener("click", function () { playTrack(i); });
                 list.appendChild(row);
@@ -312,6 +235,8 @@
               status.textContent = "Error: " + err.message;
             });
         }
+
+        loadJams();
       })();
     </script>
   </body>

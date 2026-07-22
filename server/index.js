@@ -225,10 +225,14 @@ app.get("/api/uploads", (_req, res) => {
 });
 
 const MUSIC_EXTS = /\.(mp3|flac|wav|ogg|aac|m4a|wma|opus)$/i;
+const JAMS_EXTS = /\.(mp3|flac|wav|ogg|aac|m4a|wma|opus|caf|mov|MOV|mp4)$/i;
+
+const JAMS_DIR = process.env.JAMS_DIR || path.join(__dirname, "..", "jams");
 
 const CACHE_DIR = process.env.CACHE_DIR || path.join(__dirname, "..", "cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 const MUSIC_CACHE_FILE = path.join(CACHE_DIR, "music.json");
+const JAMS_CACHE_FILE = path.join(CACHE_DIR, "jams.json");
 
 function readMusicCache() {
   try {
@@ -245,12 +249,31 @@ function writeMusicCache(tracks) {
   } catch {}
 }
 
+function readJamsCache() {
+  try {
+    var raw = fs.readFileSync(JAMS_CACHE_FILE, "utf8");
+    var data = JSON.parse(raw);
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch {}
+  return null;
+}
+
+function writeJamsCache(tracks) {
+  try {
+    fs.writeFileSync(JAMS_CACHE_FILE, JSON.stringify(tracks));
+  } catch {}
+}
+
 var musicMemCache = null;
 var musicMemCacheTime = 0;
 var MUSIC_CACHE_TTL = 30 * 60 * 1000;
 var musicIndexing = null;
 
-function walkDir(dir) {
+var jamsMemCache = null;
+var jamsMemCacheTime = 0;
+var jamsIndexing = null;
+
+function walkDir(dir, exts, skipDirs) {
   var results = [];
   try {
     var list = fs.readdirSync(dir);
@@ -266,8 +289,11 @@ function walkDir(dir) {
       return;
     }
     if (stat.isDirectory()) {
-      results = results.concat(walkDir(fp));
-    } else if (MUSIC_EXTS.test(file)) {
+      var lower = file.toLowerCase();
+      if (lower.endsWith(".logicx") || lower.endsWith(".app") || lower.endsWith(".framework") || lower.endsWith(".nosync") || file === "Project File Backups" || file === "Alternatives" || file === "Media" || file === "Audio Files" || file === "Freeze Files.nosync" || file === "Resources" || file === "RANDOM TECH" || file === "Bounces") return;
+      if (skipDirs && skipDirs.indexOf(file) >= 0) return;
+      results = results.concat(walkDir(fp, exts, skipDirs));
+    } else if (exts.test(file)) {
       results.push(fp);
     }
   });
@@ -291,7 +317,7 @@ app.post("/api/music/auth", (req, res) => {
   });
 });
 
-app.get("/api/music", musicAuthMiddleware, async (_req, res) => {
+app.get("/api/music", async (_req, res) => {
   if (musicMemCache && Date.now() - musicMemCacheTime < MUSIC_CACHE_TTL) {
     return res.json(musicMemCache);
   }
@@ -307,7 +333,7 @@ app.get("/api/music", musicAuthMiddleware, async (_req, res) => {
     return res.json({ status: "indexing", progress: musicIndexing.progress, total: musicIndexing.total });
   }
 
-  var files = walkDir(MUSIC_DIR);
+  var files = walkDir(MUSIC_DIR, MUSIC_EXTS);
   var tracks = [];
   musicIndexing = { progress: 0, total: files.length };
   for (var i = 0; i < files.length; i++) {
@@ -349,7 +375,7 @@ app.get("/api/music", musicAuthMiddleware, async (_req, res) => {
   res.json(tracks);
 });
 
-app.get("/api/music/stream", musicAuthMiddleware, musicStreamLimiter, (req, res) => {
+app.get("/api/music/stream", musicStreamLimiter, (req, res) => {
   var rel = req.query.path;
   if (!rel) return res.status(400).json({ error: "Missing path" });
   var fp = path.join(MUSIC_DIR, rel);
@@ -379,6 +405,9 @@ app.get("/api/music/stream", musicAuthMiddleware, musicStreamLimiter, (req, res)
   else if (ext === ".ogg") mime = "audio/ogg";
   else if (ext === ".opus") mime = "audio/ogg";
   else if (ext === ".wma") mime = "audio/x-ms-wma";
+  else if (ext === ".aif" || ext === ".aiff") mime = "audio/aiff";
+  else if (ext === ".caf") mime = "audio/x-caf";
+  else if (ext === ".mov" || ext === ".mp4") mime = "video/quicktime";
 
   res.setHeader("Content-Type", mime);
   res.setHeader("Accept-Ranges", "bytes");
@@ -417,6 +446,115 @@ app.get("/music", (_req, res) => {
 
 app.get("/about", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "about.html"));
+});
+
+app.get("/api/jams", async (_req, res) => {
+  if (jamsMemCache) {
+    return res.json(jamsMemCache);
+  }
+
+  var diskCache = readJamsCache();
+  if (diskCache) {
+    jamsMemCache = diskCache;
+    jamsMemCacheTime = Date.now();
+    return res.json(diskCache);
+  }
+
+  if (jamsIndexing) {
+    return res.json({ status: "indexing", progress: jamsIndexing.progress, total: jamsIndexing.total });
+  }
+
+  var files = walkDir(JAMS_DIR, JAMS_EXTS, ["MUSIC"]);
+  var tracks = [];
+  jamsIndexing = { progress: 0, total: files.length };
+  for (var i = 0; i < files.length; i++) {
+    var fp = files[i];
+    var rel = path.relative(JAMS_DIR, fp);
+    try {
+      var metadata = await mm.parseFile(fp, { duration: false });
+      var common = metadata.common;
+      tracks.push({
+        id: i,
+        path: rel,
+        title: common.title || path.basename(fp, path.extname(fp)),
+        artist: common.artist || "",
+        album: common.album || "",
+        year: common.year || "",
+        track: common.track ? common.track.no : null,
+        duration: metadata.format.duration ? Math.round(metadata.format.duration) : null,
+      });
+    } catch (err) {
+      tracks.push({
+        id: i,
+        path: rel,
+        title: path.basename(fp, path.extname(fp)),
+        artist: "",
+        album: "",
+        year: "",
+        track: null,
+        duration: null,
+        error: err.message,
+      });
+    }
+    jamsIndexing.progress = i + 1;
+  }
+
+  jamsMemCache = tracks;
+  jamsMemCacheTime = Date.now();
+  jamsIndexing = null;
+  writeJamsCache(tracks);
+  res.json(tracks);
+});
+
+app.get("/api/jams/stream", musicStreamLimiter, (req, res) => {
+  var rel = req.query.path;
+  if (!rel) return res.status(400).json({ error: "Missing path" });
+  var fp = path.join(JAMS_DIR, rel);
+  if (!fp.startsWith(JAMS_DIR)) return res.status(403).json({ error: "Forbidden" });
+  if (!fs.existsSync(fp)) return res.status(404).json({ error: "Not found" });
+
+  var ext = path.extname(fp).toLowerCase();
+  var transcode = req.query.transcode === "1";
+  var needsTranscode = transcode || [".m4a", ".aac", ".wma", ".opus", ".aif", ".aiff", ".caf"].includes(ext);
+
+  if (needsTranscode) {
+    res.setHeader("Content-Type", "audio/mpeg");
+    var { spawn } = require("child_process");
+    var ffmpeg = spawn("ffmpeg", ["-i", fp, "-f", "mp3", "-ab", "192k", "-"]);
+    ffmpeg.stdout.pipe(res);
+    ffmpeg.stderr.resume();
+    req.on("close", function () { ffmpeg.kill(); });
+    return;
+  }
+
+  var stat = fs.statSync(fp);
+  var mime = "audio/mpeg";
+  if (ext === ".flac") mime = "audio/flac";
+  else if (ext === ".wav") mime = "audio/wav";
+  else if (ext === ".ogg") mime = "audio/ogg";
+  else if (ext === ".mov" || ext === ".mp4") mime = "video/quicktime";
+
+  res.setHeader("Content-Type", mime);
+  res.setHeader("Accept-Ranges", "bytes");
+
+  var range = req.headers.range;
+  if (range) {
+    var parts = range.replace(/bytes=/, "").split("-");
+    var start = parseInt(parts[0], 10);
+    var end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+    var chunkSize = end - start + 1;
+    res.status(206);
+    res.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + stat.size);
+    res.setHeader("Content-Length", chunkSize);
+    fs.createReadStream(fp, { start: start, end: end }).pipe(res);
+  } else {
+    res.setHeader("Content-Length", stat.size);
+    fs.createReadStream(fp).pipe(res);
+  }
+});
+
+app.get("/jams", (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "jams.html"));
 });
 
 app.get("/api/music/download/:album", musicAuthMiddleware, (req, res) => {
@@ -462,7 +600,7 @@ app.listen(PORT, () => {
 
   if (!readMusicCache()) {
     console.log("Pre-indexing music library...");
-    var files = walkDir(MUSIC_DIR);
+    var files = walkDir(MUSIC_DIR, MUSIC_EXTS);
     console.log("Found " + files.length + " music files. Parsing metadata...");
     (async function () {
       var tracks = [];
@@ -503,5 +641,48 @@ app.listen(PORT, () => {
     })();
   } else {
     console.log("Music cache found. Skipping re-index.");
+  }
+
+  if (!readJamsCache()) {
+    console.log("Pre-indexing jams library...");
+    var jamFiles = walkDir(JAMS_DIR, JAMS_EXTS, ["MUSIC"]);
+    console.log("Found " + jamFiles.length + " jam files. Parsing metadata...");
+    (async function () {
+      var tracks = [];
+      for (var i = 0; i < jamFiles.length; i++) {
+        var fp = jamFiles[i];
+        var rel = path.relative(JAMS_DIR, fp);
+        try {
+          var metadata = await mm.parseFile(fp, { duration: false });
+          var common = metadata.common;
+          tracks.push({
+            id: i,
+            path: rel,
+            title: common.title || path.basename(fp, path.extname(fp)),
+            artist: common.artist || "",
+            album: common.album || "",
+            year: common.year || "",
+            track: common.track ? common.track.no : null,
+            duration: metadata.format.duration ? Math.round(metadata.format.duration) : null,
+          });
+        } catch {
+          tracks.push({
+            id: i,
+            path: rel,
+            title: path.basename(fp, path.extname(fp)),
+            artist: "",
+            album: "",
+            year: "",
+            track: null,
+            duration: null,
+          });
+        }
+      }
+      jamsMemCache = tracks;
+      writeJamsCache(tracks);
+      console.log("Jams indexing complete. " + tracks.length + " tracks cached.");
+    })();
+  } else {
+    console.log("Jams cache found. Skipping re-index.");
   }
 });

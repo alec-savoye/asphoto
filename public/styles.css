@@ -867,6 +867,29 @@ body {
   margin-bottom: 2rem;
 }
 
+.music-header-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.music-nav-link {
+  font-weight: 300;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 25%);
+  text-decoration: none;
+  border: 1px solid rgb(255 255 255 / 10%);
+  padding: 0.2rem 0.8rem;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.music-nav-link:hover {
+  color: #fff;
+  border-color: rgb(255 255 255 / 40%);
+}
+
 .music-title {
   font-weight: 300;
   font-size: 1.4rem;
@@ -970,6 +993,19 @@ body {
   color: #fff;
 }
 
+.track-badge {
+  font-family: "Inter", sans-serif;
+  font-weight: 300;
+  font-size: 0.55rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 25%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  padding: 0.1rem 0.4rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
 .track-duration {
   font-weight: 300;
   font-size: 0.7rem;
@@ -1042,6 +1078,21 @@ body {
 }
 
 .download-btn:hover {
+  color: #fff;
+  border-color: rgb(255 255 255 / 50%);
+}
+
+.share-btn {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 30%);
+  border: 1px solid rgb(255 255 255 / 15%);
+  padding: 0.25rem 0.7rem;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.share-btn:hover {
   color: #fff;
   border-color: rgb(255 255 255 / 50%);
 }
